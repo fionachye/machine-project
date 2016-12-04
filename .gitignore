@@ -1,0 +1,10 @@
+.gitignore
+.DS_Store
+.idea/
+CMakeLists.txt
+Grader.sh
+cmake-build-debug/
+mp1_specifications.pdf
+run.sh
+submit.py
+testcases/
