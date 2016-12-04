@@ -1,6 +1,8 @@
 .gitignore
 .DS_Store
 .idea/
+*.o
+*.log
 CMakeLists.txt
 Grader.sh
 cmake-build-debug/
