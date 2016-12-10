@@ -128,10 +128,11 @@ int MP1Node::introduceSelfToGroup(Address *joinaddr) {
 #ifdef DEBUGLOG
         log->LOG(&memberNode->addr, "Starting up group...");
 #endif
-        // add my entry to membership list table
+        // add my entry to my membership list table
         memberNode->memberList.push_back(MemberListEntry());
         memberNode->myPos = memberNode->memberList.begin();
-    
+        memberNode->myPos->id = *(int*)(&memberNode->addr.addr);
+        // I now belong to a group
         memberNode->inGroup = true;
     }
     else {
@@ -217,16 +218,35 @@ void MP1Node::checkMessages() {
  *
  * DESCRIPTION: Message handler for different message types
  */
-bool MP1Node::recvCallBack(void *env, char *msg, int size ) {
-    MessageHdr *msg_header = (MessageHdr *) msg;
+bool MP1Node::recvCallBack(void *env, char *data, int size ) {
+    MessageHdr *msg_header = (MessageHdr *) data;
     long heartbeat;
-    char address[6];
+    Address address = Address();
     // deserialize
-    memcpy(&address, (char *)(msg + sizeof(int)), sizeof(memberNode->addr.addr));
-    memcpy(&heartbeat, (char *)(msg + sizeof(int)) + 1 + sizeof(memberNode->addr.addr),  sizeof(long));
+    memcpy(&address.addr, (char *)(data + sizeof(int)), sizeof(memberNode->addr.addr));
+    memcpy(&heartbeat, (char *)(data + sizeof(int)) + 1 + sizeof(memberNode->addr.addr),  sizeof(long));
     
     if (msg_header->msgType == JOINREQ) {
-        // sends membership list to this target node 
+        // sends membership list to this target node
+        Address joinaddr;
+        joinaddr = getJoinAddress();
+        MessageHdr *msg;
+        size_t msgsize = sizeof(MessageHdr) + 1 + sizeof(joinaddr.addr) + sizeof(long) + sizeof(memberNode->memberList);
+        msg = (MessageHdr *) malloc(msgsize * sizeof(char));
+
+        // create JOINREP message: format of data is {struct Address myaddr}
+        msg->msgType = JOINREP;
+        memcpy((char *)(msg+1), &memberNode->addr.addr, sizeof(memberNode->addr.addr));
+        memcpy((char *)(msg+1) + 1 + sizeof(memberNode->addr.addr), &memberNode->heartbeat, sizeof(long));
+        memcpy((char *)(msg+1) + 1 + sizeof(memberNode->addr.addr) + sizeof(long), &memberNode->memberList, sizeof(memberNode->memberList));
+        
+        // send JOINREO message to target member
+        emulNet->ENsend(&memberNode->addr, &address, (char *)msg, msgsize);
+        free(msg);
+    }
+    
+    else if (msg_header->msgType == JOINREP) {
+        
     }
 }
 
