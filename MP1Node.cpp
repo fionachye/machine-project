@@ -222,23 +222,24 @@ bool MP1Node::recvCallBack(void *env, char *data, int size ) {
     MessageHdr *msg_header = (MessageHdr *) data;
     long heartbeat;
     Address address = Address();
-    // deserialize
-    memcpy(&address.addr, (char *)(data + sizeof(int)), sizeof(memberNode->addr.addr));
-    memcpy(&heartbeat, (char *)(data + sizeof(int)) + 1 + sizeof(memberNode->addr.addr),  sizeof(long));
     
     if (msg_header->msgType == JOINREQ) {
+        // deserialize
+        memcpy(&address.addr, (char *)(data + sizeof(int)), sizeof(memberNode->addr.addr));
+        memcpy(&heartbeat, (char *)(data + sizeof(int)) + 1 + sizeof(memberNode->addr.addr),  sizeof(long));
+        
         // sends membership list to this target node
         Address joinaddr;
         joinaddr = getJoinAddress();
         MessageHdr *msg;
-        size_t msgsize = sizeof(MessageHdr) + 1 + sizeof(joinaddr.addr) + sizeof(long) + sizeof(memberNode->memberList);
+        size_t msgsize = sizeof(MessageHdr)+sizeof(joinaddr.addr)+sizeof(long)+sizeof(memberNode->memberList)+1;
         msg = (MessageHdr *) malloc(msgsize * sizeof(char));
 
         // create JOINREP message: format of data is {struct Address myaddr}
         msg->msgType = JOINREP;
         memcpy((char *)(msg+1), &memberNode->addr.addr, sizeof(memberNode->addr.addr));
-        memcpy((char *)(msg+1) + 1 + sizeof(memberNode->addr.addr), &memberNode->heartbeat, sizeof(long));
-        memcpy((char *)(msg+1) + 1 + sizeof(memberNode->addr.addr) + sizeof(long), &memberNode->memberList, sizeof(memberNode->memberList));
+        memcpy((char *)(msg+1)+sizeof(memberNode->addr.addr), &memberNode->heartbeat, sizeof(long));
+        memcpy((char *)(msg+1)+1+sizeof(memberNode->addr.addr)+sizeof(long), &memberNode->memberList, sizeof(memberNode->memberList));
         
         // send JOINREO message to target member
         emulNet->ENsend(&memberNode->addr, &address, (char *)msg, msgsize);
@@ -246,7 +247,12 @@ bool MP1Node::recvCallBack(void *env, char *data, int size ) {
     }
     
     else if (msg_header->msgType == JOINREP) {
-        
+        // deserialize
+        memcpy(&address.addr, (char *)(data+sizeof(int)), sizeof(memberNode->addr.addr));
+        memcpy(&heartbeat, (char *)(data+sizeof(int))+sizeof(memberNode->addr.addr),  sizeof(long));
+        //receives introducer's membership table
+        memcpy(&memberNode->memberList, (char *)(data+sizeof(int))+sizeof(memberNode->addr.addr)+1+sizeof(long), sizeof(memberNode->memberList));
+        cout << "hahaha" << endl;
     }
 }
 
