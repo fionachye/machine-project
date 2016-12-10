@@ -26,6 +26,7 @@ void handler(int sig) {
  **********************************/
 int main(int argc, char *argv[]) {
 	//signal(SIGSEGV, handler);
+
 	if ( argc != ARGS_COUNT ) {
 		cout<<"Configuration (i.e., *.conf) file File Required"<<endl;
 		return FAILURE;

@@ -10,3 +10,7 @@ mp1_specifications.pdf
 run.sh
 submit.py
 testcases/
+Application.exe
+nbproject/
+*.exe
+*.stackdump

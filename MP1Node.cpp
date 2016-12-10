@@ -107,7 +107,7 @@ int MP1Node::initThisNode(Address *joinaddr) {
 	memberNode->heartbeat = 0;
 	memberNode->pingCounter = TFAIL;
 	memberNode->timeOutCounter = -1;
-    initMemberListTable(memberNode);
+        initMemberListTable(memberNode);
 
     return 0;
 }
@@ -128,6 +128,10 @@ int MP1Node::introduceSelfToGroup(Address *joinaddr) {
 #ifdef DEBUGLOG
         log->LOG(&memberNode->addr, "Starting up group...");
 #endif
+        // add my entry to membership list table
+        memberNode->memberList.push_back(MemberListEntry());
+        memberNode->myPos = memberNode->memberList.begin();
+    
         memberNode->inGroup = true;
     }
     else {
@@ -151,7 +155,6 @@ int MP1Node::introduceSelfToGroup(Address *joinaddr) {
     }
 
     return 1;
-
 }
 
 /**
@@ -214,10 +217,17 @@ void MP1Node::checkMessages() {
  *
  * DESCRIPTION: Message handler for different message types
  */
-bool MP1Node::recvCallBack(void *env, char *data, int size ) {
-	/*
-	 * Your code goes here
-	 */
+bool MP1Node::recvCallBack(void *env, char *msg, int size ) {
+    MessageHdr *msg_header = (MessageHdr *) msg;
+    long heartbeat;
+    char address[6];
+    // deserialize
+    memcpy(&address, (char *)(msg + sizeof(int)), sizeof(memberNode->addr.addr));
+    memcpy(&heartbeat, (char *)(msg + sizeof(int)) + 1 + sizeof(memberNode->addr.addr),  sizeof(long));
+    
+    if (msg_header->msgType == JOINREQ) {
+        // sends membership list to this target node 
+    }
 }
 
 /**
