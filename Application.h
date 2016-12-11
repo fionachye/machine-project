@@ -37,7 +37,7 @@ private:
 	// Coordinator Node
 	char JOINADDR[30];
 	EmulNet *en;
-        Log *log;
+    Log *log;
 	MP1Node **mp1;
 	Params *par;
 public:

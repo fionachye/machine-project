@@ -68,6 +68,10 @@ public:
 	int introduceSelfToGroup(Address *joinAddress);
 	int finishUpThisNode();
 	void nodeLoop();
+        void joinreq_MessageHandler(Address from);
+        void joinrep_MessageHandler();
+        char* serializeMembershipList(size_t buffer_sz);
+        vector<MemberListEntry> deserializeMembershipList(char* buff);
 	void checkMessages();
 	bool recvCallBack(void *env, char *data, int size);
 	void nodeLoopOps();

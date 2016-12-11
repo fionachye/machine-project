@@ -128,12 +128,12 @@ int MP1Node::introduceSelfToGroup(Address *joinaddr) {
 #ifdef DEBUGLOG
         log->LOG(&memberNode->addr, "Starting up group...");
 #endif
-        // add my entry to my membership list table
+        memberNode->inGroup = true;
+        
+        // add my entry to my membership table
         memberNode->memberList.push_back(MemberListEntry());
         memberNode->myPos = memberNode->memberList.begin();
         memberNode->myPos->id = *(int*)(&memberNode->addr.addr);
-        // I now belong to a group
-        memberNode->inGroup = true;
     }
     else {
         size_t msgsize = sizeof(MessageHdr) + sizeof(joinaddr->addr) + sizeof(long) + 1;
@@ -141,8 +141,8 @@ int MP1Node::introduceSelfToGroup(Address *joinaddr) {
 
         // create JOINREQ message: format of data is {struct Address myaddr}
         msg->msgType = JOINREQ;
-        memcpy((char *)(msg+1), &memberNode->addr.addr, sizeof(memberNode->addr.addr));
-        memcpy((char *)(msg+1) + 1 + sizeof(memberNode->addr.addr), &memberNode->heartbeat, sizeof(long));
+        memcpy((char *)(msg) + sizeof(int), &memberNode->addr.addr, sizeof(memberNode->addr.addr));
+        memcpy((char *)(msg) + sizeof(int) + 1 + sizeof(memberNode->addr.addr), &memberNode->heartbeat, sizeof(long));
 
 #ifdef DEBUGLOG
         sprintf(s, "Trying to join...");
@@ -156,6 +156,7 @@ int MP1Node::introduceSelfToGroup(Address *joinaddr) {
     }
 
     return 1;
+
 }
 
 /**
@@ -219,41 +220,60 @@ void MP1Node::checkMessages() {
  * DESCRIPTION: Message handler for different message types
  */
 bool MP1Node::recvCallBack(void *env, char *data, int size ) {
-    MessageHdr *msg_header = (MessageHdr *) data;
-    long heartbeat;
-    Address address = Address();
-    
-    if (msg_header->msgType == JOINREQ) {
-        // deserialize
-        memcpy(&address.addr, (char *)(data + sizeof(int)), sizeof(memberNode->addr.addr));
-        memcpy(&heartbeat, (char *)(data + sizeof(int)) + 1 + sizeof(memberNode->addr.addr),  sizeof(long));
-        
-        // sends membership list to this target node
-        Address joinaddr;
-        joinaddr = getJoinAddress();
-        MessageHdr *msg;
-        size_t msgsize = sizeof(MessageHdr)+sizeof(joinaddr.addr)+sizeof(long)+sizeof(memberNode->memberList)+1;
-        msg = (MessageHdr *) malloc(msgsize * sizeof(char));
+    MessageHdr msgHdr = *(MessageHdr *)data;
 
-        // create JOINREP message: format of data is {struct Address myaddr}
-        msg->msgType = JOINREP;
-        memcpy((char *)(msg+1), &memberNode->addr.addr, sizeof(memberNode->addr.addr));
-        memcpy((char *)(msg+1)+sizeof(memberNode->addr.addr), &memberNode->heartbeat, sizeof(long));
-        memcpy((char *)(msg+1)+1+sizeof(memberNode->addr.addr)+sizeof(long), &memberNode->memberList, sizeof(memberNode->memberList));
+    if (msgHdr.msgType == JOINREQ) {
+        // get sender address
+        Address addr;
+        memcpy(&addr, data + sizeof(int), sizeof(memberNode->addr.addr));
         
-        // send JOINREO message to target member
-        emulNet->ENsend(&memberNode->addr, &address, (char *)msg, msgsize);
-        free(msg);
+        joinreq_MessageHandler(addr);
     }
     
-    else if (msg_header->msgType == JOINREP) {
-        // deserialize
-        memcpy(&address.addr, (char *)(data+sizeof(int)), sizeof(memberNode->addr.addr));
-        memcpy(&heartbeat, (char *)(data+sizeof(int))+sizeof(memberNode->addr.addr),  sizeof(long));
-        //receives introducer's membership table
-        memcpy(&memberNode->memberList, (char *)(data+sizeof(int))+sizeof(memberNode->addr.addr)+1+sizeof(long), sizeof(memberNode->memberList));
-        cout << "hahaha" << endl;
+    if (msgHdr.msgType == JOINREP) {
+        joinrep_MessageHandler();
     }
+}
+
+void MP1Node::joinreq_MessageHandler(Address from) {
+    // serialize my membership table 
+    size_t buffer_sz = memberNode->memberList.size() * (sizeof(int) + sizeof(long) + sizeof(long));
+    char* buffer = serializeMembershipList(buffer_sz);
+    // send JOINREP message
+    emulNet->ENsend(&memberNode->addr, &from, (char *)buffer, buffer_sz);
+    free(buffer);
+    return;
+}
+
+void MP1Node::joinrep_MessageHandler() {
+    // deserialize membership table 
+    // add my own row to this table
+}
+
+char* MP1Node::serializeMembershipList(size_t buffer_sz) {
+    vector<MemberListEntry>::iterator iterator;
+
+    // serialize format: { id, heartbeat, timestamp }
+    size_t entry_size = sizeof(int) + sizeof(long) + sizeof(long);
+    char *entry = (char *) malloc(entry_size);
+    int index = 0;
+    // buffer containing the whole table in byte
+    char* buffer = (char *)malloc(buffer_sz);
+   
+    // serialize row by row and write into buffer
+    for(iterator = memberNode->memberList.begin(); iterator != memberNode->memberList.end(); iterator++, index++) {
+        memcpy(entry, &iterator->id, sizeof(int));
+        memcpy(entry+sizeof(int), &iterator->heartbeat, sizeof(long));
+        memcpy(entry+sizeof(int)+sizeof(long), &iterator->timestamp, sizeof(long));
+        memcpy(buffer+(index*entry_size), entry, entry_size);  
+    }
+    
+    free(entry);
+    return buffer;
+}
+
+vector<MemberListEntry> MP1Node::deserializeMembershipList(char* buff) {
+    
 }
 
 /**
