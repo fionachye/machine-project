@@ -223,36 +223,58 @@ bool MP1Node::recvCallBack(void *env, char *data, int size ) {
     MessageHdr msgHdr = *(MessageHdr *)data;
 
     if (msgHdr.msgType == JOINREQ) {
-        // get sender address
-        Address addr;
-        memcpy(&addr, data + sizeof(int), sizeof(memberNode->addr.addr));
-        
-        joinreq_MessageHandler(addr);
+        joinreq_MessageHandler(data);
     }
     
     if (msgHdr.msgType == JOINREP) {
-        joinrep_MessageHandler();
+        joinrep_MessageHandler(data);
     }
 }
 
-void MP1Node::joinreq_MessageHandler(Address from) {
+void MP1Node::joinreq_MessageHandler(char* data) {
+    // get sender's address of this message
+    Address fromAddr;
+    memcpy(&fromAddr, data + sizeof(int), sizeof(memberNode->addr.addr));
+    
     // serialize my membership table 
-    size_t buffer_sz = memberNode->memberList.size() * (sizeof(int) + sizeof(long) + sizeof(long));
-    char* buffer = serializeMembershipList(buffer_sz);
+    size_t table_buffer_sz = memberNode->memberList.size() * (sizeof(int) + sizeof(long) + sizeof(long));
+    char* table = serializeMembershipList(table_buffer_sz);
+    
     // send JOINREP message
-    emulNet->ENsend(&memberNode->addr, &from, (char *)buffer, buffer_sz);
-    free(buffer);
+    // serialize format: { JOINREP, memberListSize, membershipList }
+    MessageHdr *msg;
+    int num_rows = (int)memberNode->memberList.size();
+    size_t buffer_sz = sizeof(MessageHdr) + sizeof(int) + table_buffer_sz;
+    msg = (MessageHdr *) malloc(buffer_sz * sizeof(char));
+    msg->msgType = JOINREP;
+    memcpy((char*)msg + sizeof(MessageHdr), &num_rows, sizeof(int));
+    memcpy((char*)msg + sizeof(MessageHdr) + sizeof(int), table, table_buffer_sz);
+    
+    emulNet->ENsend(&memberNode->addr, &fromAddr, (char *)msg, buffer_sz);
+    free(table);
+    free(msg);
+    
     return;
 }
 
-void MP1Node::joinrep_MessageHandler() {
+void MP1Node::joinrep_MessageHandler(char* data) {
     // deserialize membership table 
+    vector<MemberListEntry> mList;
+    char* table = data + sizeof(MessageHdr);
+    mList = deserializeMembershipList(table);
+    memberNode->memberList = mList;
     // add my own row to this table
+    MemberListEntry mEntry;
+    mEntry.id = *(int*)(&memberNode->addr.addr);
+    mEntry.heartbeat = memberNode->heartbeat;
+    mEntry.timestamp = (long)par->getcurrtime();
+    memberNode->memberList(MemberListEntry(mEntry));
+    return;
 }
 
 char* MP1Node::serializeMembershipList(size_t buffer_sz) {
     vector<MemberListEntry>::iterator iterator;
-
+    vector<MemberListEntry> mList = memberNode->memberList;
     // serialize format: { id, heartbeat, timestamp }
     size_t entry_size = sizeof(int) + sizeof(long) + sizeof(long);
     char *entry = (char *) malloc(entry_size);
@@ -261,19 +283,39 @@ char* MP1Node::serializeMembershipList(size_t buffer_sz) {
     char* buffer = (char *)malloc(buffer_sz);
    
     // serialize row by row and write into buffer
-    for(iterator = memberNode->memberList.begin(); iterator != memberNode->memberList.end(); iterator++, index++) {
+    for(iterator = mList.begin(); iterator != mList.end(); iterator++, index++) {
         memcpy(entry, &iterator->id, sizeof(int));
         memcpy(entry+sizeof(int), &iterator->heartbeat, sizeof(long));
         memcpy(entry+sizeof(int)+sizeof(long), &iterator->timestamp, sizeof(long));
         memcpy(buffer+(index*entry_size), entry, entry_size);  
     }
-    
     free(entry);
     return buffer;
 }
 
-vector<MemberListEntry> MP1Node::deserializeMembershipList(char* buff) {
+vector<MemberListEntry> MP1Node::deserializeMembershipList(char* buffer) {
+    // get num rows
+    int num_rows;
+    char* table = buffer+sizeof(int);
+    vector<MemberListEntry> mList;
+    MemberListEntry mEntry;
     
+    memcpy(&num_rows, buffer, sizeof(int));
+    
+    int id; 
+    long heartbeat, timestamp;
+    // deserialize row by row
+    for (int i = 0; i < num_rows; i++) {
+        memcpy(&id, table, sizeof(int));
+        memcpy(&heartbeat, table + sizeof(int), sizeof(long));
+        memcpy(&timestamp, table + sizeof(int) + sizeof(long), sizeof(long));
+        mEntry.id = id;
+        mEntry.heartbeat = heartbeat;
+        mEntry.timestamp = timestamp;
+        mList.push_back(MemberListEntry(mEntry));
+    }
+    
+    return mList;
 }
 
 /**
