@@ -31,7 +31,7 @@
 enum MsgTypes{
     JOINREQ,
     JOINREP,
-    DUMMYLASTMSGTYPE
+    GOSSIP
 };
 
 /**
@@ -70,9 +70,14 @@ public:
 	void nodeLoop();
         void joinreq_MessageHandler(char* data);
         void joinrep_MessageHandler(char* data);
-        char* serializeMembershipList(size_t buffer_sz);
+        void gossip_MessageHandler(char* data);
+        char* serializeMembershipList();
         vector<MemberListEntry> deserializeMembershipList(char* table);
+        void sendGossipToNeighbours(int neighbour_id);
+        void updateAndMergeMemberList(vector<MemberListEntry> mList);
+        void updateSelfEntry();
 	void checkMessages();
+        Address getMemberAdress(int id, short port);
 	bool recvCallBack(void *env, char *data, int size);
 	void nodeLoopOps();
 	int isNullAddress(Address *addr);
