@@ -58,9 +58,7 @@ private:
 
 public:
 	MP1Node(Member *, Params *, EmulNet *, Log *, Address *);
-	Member * getMemberNode() {
-		return memberNode;
-	}
+	Member * getMemberNode();
 	int recvLoop();
 	static int enqueueWrapper(void *env, char *buff, int size);
 	void nodeStart(char *servaddrstr, short serverport);
@@ -77,7 +75,7 @@ public:
         void updateAndMergeMemberList(vector<MemberListEntry> mList);
         void updateSelfEntry();
 	void checkMessages();
-        Address getMemberAdress(int id, short port);
+        Address getMemberAddress(int id, short port);
 	bool recvCallBack(void *env, char *data, int size);
 	void nodeLoopOps();
 	int isNullAddress(Address *addr);

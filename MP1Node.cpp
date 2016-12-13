@@ -321,8 +321,8 @@ void MP1Node::updateAndMergeMemberList(vector<MemberListEntry> mList) {
             mEntry.heartbeat = it1->heartbeat;
             mEntry.timestamp = (long)par->getcurrtime();
             memberNode->memberList.push_back(MemberListEntry(mEntry));
-            Address entry_address = getMemberAdress(mEntry.id, mEntry.port);
-            log->logNodeAdd(&(memberNode->addr), &entry_address);
+            Address entry_address = getMemberAddress(mEntry.id, mEntry.port);
+            log->logNodeAdd(&(memberNode->addr), &entry_address);                
         }
     }
     
@@ -339,7 +339,9 @@ void MP1Node::updateSelfEntry() {
     vector<MemberListEntry>::iterator iterator;
     bool found_my_entry = false;
     
-    for(iterator = memberNode->memberList.begin(); iterator != memberNode->memberList.end() && !found_my_entry; iterator++) {
+    for(iterator = memberNode->memberList.begin(); iterator != memberNode->memberList.end(); iterator++) {
+        Address addr = getMemberAddress(iterator->id, iterator->port);
+        log->logNodeAdd(&(memberNode->addr), &addr);
         if (iterator->id == *(int*)(&memberNode->addr.addr)) {
             // update my row, remember my position
             iterator->port = *(short*)(&memberNode->addr.addr[4]);
@@ -435,15 +437,14 @@ void MP1Node::nodeLoopOps() {
     // identify which member in the list has failed
     // delete entry if heartbeat has not increased for more than 2*TFAIL 
     // ignore if heartbeat has not increased after TFAIL but still less than 2*TFAIL
-    vector<MemberListEntry> mList = memberNode->memberList;
-    vector<MemberListEntry>::iterator it = mList.begin();
-    while (it != mList.end()) {
+    vector<MemberListEntry>::iterator it = memberNode->memberList.begin();
+    while (it != memberNode->memberList.end()) {
         long time_difference = abs(par->getcurrtime() - it->timestamp);
         if (time_difference >= 2*TFAIL) {
             // log then delete this member
-            Address entry_address = getMemberAdress(it->id,it->port);
+            Address entry_address = getMemberAddress(it->id,it->port);
             log->logNodeRemove(&memberNode->addr, &entry_address);
-            it = mList.erase(it);
+            it = memberNode->memberList.erase(it);
             continue;
         }
         it++;
@@ -478,16 +479,19 @@ void MP1Node::nodeLoopOps() {
         }
     }
     
-    // send my membership tables to these selected neighbours
-    for (int i = 0; i < nnb; i++) {
-        sendGossipToNeighbours(rand_nums[i]);
+    //send my membership tables to these selected neighbours
+//    for (int i = 0; i < nnb; i++) {
+//        sendGossipToNeighbours(rand_nums[i]);
+//    }
+    for (int i = 0; i < memberNode->memberList.size(); i++) {
+        sendGossipToNeighbours(i);
     }
     return;
 }
 
 void MP1Node::sendGossipToNeighbours(int neighbour_id) {
         MemberListEntry mEntry = memberNode->memberList[neighbour_id];
-        Address toAddress = getMemberAdress(mEntry.id, mEntry.port);
+        Address toAddress = getMemberAddress(mEntry.id, mEntry.port);
         
         size_t tablesize = memberNode->memberList.size() * ( sizeof(int) + sizeof(short) + sizeof(long) + sizeof(long) );
         // { MessageHdr myAddress memberListSize membershipList }
@@ -515,7 +519,7 @@ int MP1Node::isNullAddress(Address *addr) {
 	return (memcmp(addr->addr, NULLADDR, 6) == 0 ? 1 : 0);
 }
 
-Address MP1Node::getMemberAdress(int id, short port) {
+Address MP1Node::getMemberAddress(int id, short port) {
     Address address = Address();
     memcpy(&address.addr[0], &id, sizeof(int));
     memcpy(&address.addr[4], &port, sizeof(short));
@@ -545,6 +549,11 @@ Address MP1Node::getJoinAddress() {
 void MP1Node::initMemberListTable(Member *memberNode) {
 	memberNode->memberList.clear();
 }
+
+Member * MP1Node::getMemberNode() {
+    return memberNode;
+}
+
 
 /**
  * FUNCTION NAME: printAddress
