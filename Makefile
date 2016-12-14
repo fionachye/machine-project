@@ -1,13 +1,13 @@
 #**********************
 #*
-#* Program Name: MP1. Membership Protocol.
+#* Progam Name: MP1. Membership Protocol.
 #*
 #* Current file: Makefile
 #* About this file: Build Script.
 #* 
 #***********************
 
-CFLAGS =  -Wall -g -std=c++11 -mcmodel=medium
+CFLAGS =  -Wall -g -std=c++11
 
 all: Application
 

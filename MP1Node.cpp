@@ -449,42 +449,13 @@ void MP1Node::nodeLoopOps() {
         }
         it++;
     }
-    
-    // update number of neighbours
-    int table_len = memberNode->memberList.size();
-    int nnb = (table_len == 1) ? 0 : table_len/3 + 1;
-    memberNode->nnb = nnb;
-    
-    // pick random neighbours and send them my updated membershipList
-    // make sure don't select the same neighbour twice
-    bool is_repeated[table_len];
-    for (int i = 0; i < table_len; i++){
-        is_repeated[i] = false;
-    }
-    
-    int rand_nums[nnb];
-    int rand_num;
-    srand(time(NULL));
-    for (int i = 0; i < nnb; ) {
-        // generate random numbers from 0 to tablen_len-1
-        rand_num = rand() % table_len;
-        // check if this number has been generated before
-        if (is_repeated[rand_num]) continue;
-        else if (memberNode->memberList[rand_num].id == memberNode->myPos->id) continue;
-        else {
-            rand_nums[i] = rand_num;
-            // mark this number in the boolean array
-            is_repeated[i] = true;
-            i += 1;
-        }
-    }
-    
-    //send my membership tables to these selected neighbours
-//    for (int i = 0; i < nnb; i++) {
-//        sendGossipToNeighbours(rand_nums[i]);
-//    }
+
     for (int i = 0; i < memberNode->memberList.size(); i++) {
-        sendGossipToNeighbours(i);
+        // only choose peers which did not send us their table at current tick
+        // completeness and accuracy is still guaranteed here
+        if (memberNode->memberList[i].timestamp < par->getcurrtime()) {
+            sendGossipToNeighbours(i);
+        }
     }
     return;
 }
